@@ -1,0 +1,11 @@
+{
+    "name": "srrvnn-api",
+    "description": "API box to run server side calls",
+    "version": "0.0.1",
+    "private": true,
+    "main": "server.js",
+    "dependencies": {
+        "express": "~4.0.0",
+        "body-parser": "~1.0.1"
+    }
+}
