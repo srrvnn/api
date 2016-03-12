@@ -45,14 +45,14 @@ router.get('/', function(req, res) {
 
 router.get('/twitter_signin', function (req, res) {
 
-    if (oauth.token_secret) {
-
-        var uri = 'https://api.twitter.com/oauth/authenticate'
-        + '?' + qs.stringify({oauth_token: oauthToken});
-
-        res.redirect(uri);
-
-    } else {
+    // if (oauth.token_secret) { // avoid hitting request token url often
+    //
+    //     var uri = 'https://api.twitter.com/oauth/authenticate'
+    //     + '?' + qs.stringify({oauth_token: oauthToken});
+    //
+    //     res.redirect(uri);
+    //
+    // } else {
 
         request.post({url : requestTokenUrl, oauth : oauth}, function (e, r, body) {
 
@@ -71,11 +71,11 @@ router.get('/twitter_signin', function (req, res) {
 
             } else {
 
-                res.send('Unable to get twitter app access token');
+                res.send('Unable to get twitter app access token' + JSON.stringify(body));
             }
 
         });
-    }
+    // }
 });
 
 router.get('/twitter_signin_callback', function (req, res) {
@@ -116,8 +116,25 @@ router.get('/twitter_friends', function (req, res){
 
 });
 
-router.get('/twitter_people', function (req, res){
+router.get('/twitter_search_people', function (req, res){
 
+    var oauth = {
+
+        consumer_key : process.env.TWTR_KEY,
+        consumer_secret : process.env.TWTR_SECRET,
+        token: req.query.user_access_token,
+        token_secret : req.query.user_access_secret
+    };
+
+    var qs = {
+        q: req.query.q
+    };
+
+    request.get({url: 'https://api.twitter.com/1.1/users/search.json', oauth: oauth, qs: qs}, function(e, r, body) {
+
+        res.header('Access-Control-Allow-Origin','*');
+        res.json(body);
+    });
 });
 
 router.get('/twitter_list_timeline', function (req, res){
