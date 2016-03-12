@@ -45,20 +45,37 @@ router.get('/', function(req, res) {
 
 router.get('/twitter_signin', function (req, res) {
 
-  request.post({url : requestTokenUrl, oauth : oauth}, function (e, r, body) {
+    if (oauth.token_secret) {
 
-    //Parsing the Query String containing the oauth_token and oauth_secret.
-    var reqData = qs.parse(body);
-    var oauthToken = reqData.oauth_token;
-    var oauthTokenSecret = reqData.oauth_token_secret;
+        var uri = 'https://api.twitter.com/oauth/authenticate'
+        + '?' + qs.stringify({oauth_token: oauthToken});
 
-    oauth.token_secret = oauthTokenSecret;
+        res.redirect(uri);
 
-    var uri = 'https://api.twitter.com/oauth/authenticate'
-    + '?' + qs.stringify({oauth_token: oauthToken});
-    res.header('Access-Control-Allow-Origin','*');
-    res.json({url: uri});
-  });
+    } else {
+
+        request.post({url : requestTokenUrl, oauth : oauth}, function (e, r, body) {
+
+            var reqData = qs.parse(body);
+            var oauthToken = reqData.oauth_token;
+            var oauthTokenSecret = reqData.oauth_token_secret;
+
+            oauth.token_secret = oauthTokenSecret;
+
+            if (oauth.token_secret) {
+
+                var uri = 'https://api.twitter.com/oauth/authenticate'
+                + '?' + qs.stringify({oauth_token: oauthToken});
+
+                res.redirect(uri);
+
+            } else {
+
+                res.send('Unable to get twitter app access token');
+            }
+
+        });
+    }
 });
 
 router.get('/twitter_signin_callback', function (req, res) {
@@ -70,8 +87,28 @@ router.get('/twitter_signin_callback', function (req, res) {
 
       var authenticatedData = qs.parse(body);
 
-      res.header('Access-Control-Allow-Origin','*');
-      res.json({user_token: authenticatedData.oauth_token, user_secret: authenticatedData.oauth_token_secret});
+      var oauth = {
+
+          consumer_key : process.env.TWTR_KEY,
+          consumer_secret : process.env.TWTR_SECRET,
+          token: authenticatedData.oauth_token,
+          token_secret : authenticatedData.oauth_token_secret
+      };
+
+      request.get({url: 'https://api.twitter.com/1.1/account/settings.json', oauth: oauth}, function(e, r, body) {
+
+          var accountData = JSON.parse(body);
+
+          var json = {
+
+              user_token: authenticatedData.oauth_token,
+              user_secret: authenticatedData.oauth_token_secret,
+              user_name: accountData.screen_name
+          };
+
+          res.header('Access-Control-Allow-Origin','*');
+          res.json(json);
+      })
   });
 });
 
@@ -83,8 +120,47 @@ router.get('/twitter_people', function (req, res){
 
 });
 
-router.get('/twitter_tweets', function (req, res){
+router.get('/twitter_list_timeline', function (req, res){
 
+    var oauth = {
+
+        consumer_key : process.env.TWTR_KEY,
+        consumer_secret : process.env.TWTR_SECRET,
+        token: req.query.user_access_token,
+        token_secret : req.query.user_access_secret
+    };
+
+    var qs = {
+
+        slug: 'reads',
+        owner_screen_name: req.query.user_name,
+    };
+
+    request.get({url: 'https://api.twitter.com/1.1/lists/statuses.json', oauth: oauth, qs: qs}, function (e, r, body) {
+
+        var response = JSON.parse(body);
+
+        if (response.errors && response.errors[0].code == 34) {
+
+            var qs = {
+
+                name: 'reads',
+                mode: 'private',
+                description: 'People I love to read'
+            };
+
+            request.post({url: 'https://api.twitter.com/1.1/lists/create.json', oauth: oauth, qs: qs}, function (e, r, body) {
+
+                res.header('Access-Control-Allow-Origin','*');
+                res.send('New list \'reads\' created. Add People, please.');
+            });
+
+        } else {
+
+            res.header('Access-Control-Allow-Origin','*');
+            res.json(body);
+        }
+    });
 });
 
 // REGISTER OUR ROUTES -------------------------------
